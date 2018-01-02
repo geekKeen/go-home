@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <table>
+        <tr>
+            <td>车次</td>
+            <td>开始时间</td>
+            <td>到达时间</td>
+        </tr>
+
+        {% for ticket in tickets%}
+        <tr>
+            <td>{{ticket.trip}}</td>
+            <td>{{ticket.start_time}}</td>
+            <td>{{ticket.end_time}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
