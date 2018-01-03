@@ -8,6 +8,7 @@ from flask import Flask, render_template, redirect, request
 from flask_apscheduler import APScheduler
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
+from requests.exceptions import RequestException
 
 
 class Config(object):
@@ -94,8 +95,9 @@ def check_ticket(date, start_station, end_station, recipients):
     tickets = query_tickets(date=date, start_code=start_station,
                             end_code=end_station)
     if tickets:
-        html = render_template('mail.html', tickets=tickets)
-        send_mail('%s-tickets' % date, html, recipients=recipients)
+        with app.app_context():
+            html = render_template('mail.html', tickets=tickets)
+            send_mail('%s-tickets' % date, html, recipients=recipients)
 
 
 def retry(max_times=3):
@@ -119,18 +121,22 @@ def retry(max_times=3):
     return wrapper
 
 
+query_url_fmt = ("https://kyfw.12306.cn/otn/{query_route}"
+                 "?leftTicketDTO.train_date={date}"
+                 "&leftTicketDTO.from_station={start_code}"
+                 "&leftTicketDTO.to_station={end_code}&purpose_codes=ADULT")
+
+
 @retry(max_times=3)
 def query_tickets(date, start_code, end_code):
-    query_url = ("https://kyfw.12306.cn/otn/leftTicket/queryO"
-                 "?leftTicketDTO.train_date=%s"
-                 "&leftTicketDTO.from_station=%s"
-                 "&leftTicketDTO.to_station=%s"
-                 "&purpose_codes=ADULT") % (date, start_code, end_code)
     try:
+        query_url = get_query_url(date, start_code, end_code)
         response = requests.get(query_url, allow_redirects=False, verify=False)
         tickets_infos = response.json()['data']['result']
+    except RequestException:
+        raise
     except Exception as e:
-        raise e
+        return []
     else:
         tickets = []
         for ticket_info in tickets_infos:
@@ -148,11 +154,24 @@ def query_tickets(date, start_code, end_code):
         return tickets
 
 
+def get_query_url(date, start_code, end_code):
+    query_url = query_url_fmt.format(query_route='leftTicket/query', date=date,
+                                     start_code=start_code, end_code=end_code)
+    try:
+        response = requests.get(query_url, allow_redirects=False, verify=False)
+        query_route = response.json()['c_url']
+    except RequestException:
+        raise
+    except Exception:
+        return query_url
+    return query_url_fmt.format(query_route=query_route, date=date,
+                                start_code=start_code, end_code=end_code)
+
+
 def send_mail(subject, html, recipients):
-    with app.app_context():
-        msg = Message(subject, html=html, sender='1593487967@qq.com',
-                      recipients=recipients)
-        mail.send(msg)
+    msg = Message(subject, html=html, sender='1593487967@qq.com',
+                  recipients=recipients)
+    mail.send(msg)
 
 
 @app.route('/', methods=['GET', 'POST'])
