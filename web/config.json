@@ -1,8 +1,8 @@
 {
-  "MAIL_USERNAME": "...",
-  "MAIL_PASSWORD": "...",
+  "MAIL_USERNAME": "QQ Account",
+  "MAIL_PASSWORD": "QQ auth code",
   "MAIL_SERVER": "smtp.qq.com",
   "MAIL_PORT": 465,
   "MAIL_USE_SSL": true,
-  "SENDER": ""
+  "SENDER": "your qq email"
 }
