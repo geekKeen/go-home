@@ -55,10 +55,8 @@ class Ticket(object):
         except AttributeError:
             if not (attr.startswith("has_") and attr.endswith('seat')):
                 raise
-            raw_attr = attr[4:]
-            value = True if getattr(self, raw_attr) else False
-            setattr(self, attr, property(
-                fget=lambda x: True if getattr(x, raw_attr) else False))
+            value = True if getattr(self, attr[4:]) else False
+            setattr(self, attr, property(fget=lambda x: value))
             return value
 
 
