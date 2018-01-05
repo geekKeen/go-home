@@ -55,7 +55,7 @@ class Ticket(object):
         except AttributeError:
             if not (attr.startswith("has_") and attr.endswith('seat')):
                 raise
-            value = True if getattr(self, attr[4:]) else False
+            value = True if getattr(self, attr[4:]) not in (u'无', u'') else False
             setattr(self, attr, property(fget=lambda x: value))
             return value
 
@@ -91,7 +91,8 @@ def query_ticket(date, start_station, end_station, recipients, *follow_seats):
     tickets = get_tickets_info(date=date, start_code=start_station,
                                end_code=end_station)
     if not follow_seats:
-        follow_seats = ['second_seat', 'soft_sleep_seat', 'hard_sleep_seat']
+        follow_seats = ['second_seat', 'soft_sleep_seat',
+                        'hard_sleep_seat', 'hard_seat']
 
     tickets = [t for t in tickets if any(
         [getattr(t, 'has_%s' % seat) for seat in follow_seats]
