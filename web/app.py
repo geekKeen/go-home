@@ -51,7 +51,7 @@ class Ticket(object):
 
     def __getattr__(self, attr):
         try:
-            return getattr(self, attr)
+            return object.__getattr__(self, attr)
         except AttributeError:
             if not (attr.startswith("has_") and attr.endswith('seat')):
                 raise
