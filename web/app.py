@@ -13,11 +13,6 @@ from requests.exceptions import RequestException
 
 class Config(object):
     SECRET_KEY = 'go home'
-    MAIL_USERNAME = '...'
-    MAIL_PASSWORD = '...'
-    MAIL_SERVER = 'smtp.qq.com'
-    MAIL_PORT = 465
-    MAIL_USE_SSL = True
     SCHEDULER_JOBSTORES = {
         'default': SQLAlchemyJobStore(url='sqlite:///aps.db')
     }
@@ -30,9 +25,9 @@ class Config(object):
         'coalesce': False,
         'max_instances': 3
     }
-
     SQLALCHEMY_DATABASE_URI = 'sqlite:///aps.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SECONDS = 30
 
 
 class Ticket(object):
@@ -67,6 +62,7 @@ class Ticket(object):
 
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config.from_json('config.json')
 mail = Mail(app)
 db = SQLAlchemy(app)
 scheduler = APScheduler()
@@ -91,9 +87,9 @@ class Station(db.Model):
         return station.name
 
 
-def check_ticket(date, start_station, end_station, recipients):
-    tickets = query_tickets(date=date, start_code=start_station,
-                            end_code=end_station)
+def query_ticket(date, start_station, end_station, recipients):
+    tickets = get_tickets_info(date=date, start_code=start_station,
+                               end_code=end_station)
     if tickets:
         with app.app_context():
             html = render_template('mail.html', tickets=tickets)
@@ -121,14 +117,8 @@ def retry(max_times=3):
     return wrapper
 
 
-query_url_fmt = ("https://kyfw.12306.cn/otn/{query_route}"
-                 "?leftTicketDTO.train_date={date}"
-                 "&leftTicketDTO.from_station={start_code}"
-                 "&leftTicketDTO.to_station={end_code}&purpose_codes=ADULT")
-
-
 @retry(max_times=3)
-def query_tickets(date, start_code, end_code):
+def get_tickets_info(date, start_code, end_code):
     try:
         query_url = get_query_url(date, start_code, end_code)
         response = requests.get(query_url, allow_redirects=False, verify=False)
@@ -154,6 +144,12 @@ def query_tickets(date, start_code, end_code):
         return tickets
 
 
+query_url_fmt = ("https://kyfw.12306.cn/otn/{query_route}"
+                 "?leftTicketDTO.train_date={date}"
+                 "&leftTicketDTO.from_station={start_code}"
+                 "&leftTicketDTO.to_station={end_code}&purpose_codes=ADULT")
+
+
 def get_query_url(date, start_code, end_code):
     query_url = query_url_fmt.format(query_route='leftTicket/query', date=date,
                                      start_code=start_code, end_code=end_code)
@@ -169,7 +165,7 @@ def get_query_url(date, start_code, end_code):
 
 
 def send_mail(subject, html, recipients):
-    msg = Message(subject, html=html, sender='1593487967@qq.com',
+    msg = Message(subject, html=html, sender=app.config['SENDER'],
                   recipients=recipients)
     mail.send(msg)
 
@@ -181,9 +177,9 @@ def index():
         start = Station.get_code_by_name(request.form['start_station'])
         end = Station.get_code_by_name(request.form['end_station'])
         email = request.form['email']
-        scheduler.add_job(str(uuid1()), check_ticket,
+        scheduler.add_job(str(uuid1()), query_ticket,
                           args=(date, start, end, [email]), trigger='interval',
-                          seconds=60)
+                          seconds=app.config['SECONDS'])
         return redirect('/ok')
     else:
         return render_template('form.html')

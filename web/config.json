@@ -1,0 +1,8 @@
+{
+  "MAIL_USERNAME": "...",
+  "MAIL_PASSWORD": "...",
+  "MAIL_SERVER": "smtp.qq.com",
+  "MAIL_PORT": 465,
+  "MAIL_USE_SSL": true,
+  "SENDER": ""
+}
