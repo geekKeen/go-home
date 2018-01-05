@@ -43,16 +43,18 @@ class Ticket(object):
         self.second_seat = second_seat
         self.soft_sleep_seat = soft_sleep_seat
         self.hard_sleep_seat = hard_sleep_seat
-        self.hard_sleep_seat = hard_seat
+        self.hard_seat = hard_seat
         self.no_seat = no_seat
 
     def __str__(self):
         return '<Train Trip {%s} Date:{%s}>' % (self.trip, self.date)
 
     def __getattr__(self, attr):
-        if attr in type(self).__dict__:
-            return
-        if attr.startswith("has_") and attr.endswith('seat'):
+        try:
+            return getattr(self, attr)
+        except AttributeError:
+            if not (attr.startswith("has_") and attr.endswith('seat')):
+                raise
             raw_attr = attr[4:]
             value = True if getattr(self, raw_attr) else False
             setattr(self, attr, property(
@@ -87,9 +89,16 @@ class Station(db.Model):
         return station.name
 
 
-def query_ticket(date, start_station, end_station, recipients):
+def query_ticket(date, start_station, end_station, recipients, *follow_seats):
     tickets = get_tickets_info(date=date, start_code=start_station,
                                end_code=end_station)
+    if not follow_seats:
+        follow_seats = ['second_seat', 'soft_sleep_seat', 'hard_sleep_seat']
+
+    tickets = [t for t in tickets if any(
+        [getattr(t, 'has_%s' % seat) for seat in follow_seats]
+    )]
+
     if tickets:
         with app.app_context():
             html = render_template('mail.html', tickets=tickets)
